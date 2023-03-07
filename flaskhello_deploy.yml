@@ -2,13 +2,13 @@
   become: yes
 
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+    - name: update apt cache
+        apt:
+          update_cache: yes
 
-    - name: Ensure apt dependencies are present
+    - name: ensure basic apps present
       apt:
-        name:
+        name: 
           - python3-dev
           - python3-pip
           - python3-virtualenv
@@ -17,71 +17,15 @@
           - git
         state: present
 
-    - name: Ensure nginx service started
+    - name: ensure nginx started
       systemd:
         name: nginx
         state: started
 
-    - name: Add the user running webapp
-      user:
-        name: "flask"
-        state: present
-        append: yes # important pour ne pas supprimer les groupes d'un utilisateur existant
-        groups:
-        - "www-data"
+    - name: deploy all apps
+      include_tasks: deploy_app_tasks.yml
+      loop: "{{ flask_apps }}"
+      loop_control:
+        loop_var: app
 
-    - name: Git clone/update python hello webapp in user home
-      git:
-        repo: "https://github.com/e-lie/flask_hello_ansible.git"
-        dest: /home/flask/hello
-        version: "master"
-        clone: yes
-        update: no
-    
-    - name: Install python dependencies for the webapp in a virtualenv
-      pip:
-        requirements: /home/flask/hello/requirements.txt
-        virtualenv: /home/flask/hello/venv
-        virtualenv_python: python3
-    
-    - name: Change permissions of app directory recursively
-      file:
-        path: /home/flask/hello
-        state: directory
-        owner: "flask"
-        group: www-data
-        recurse: true
-    
-    - name: Template systemd service config
-      template:
-        src: templates/app.service.j2
-        dest: /etc/systemd/system/hello.service
-    
-    - name: Start systemd app service
-      systemd:
-        name: "hello.service"
-        state: restarted
-        enabled: yes
-    
-    - name: Template nginx site config
-      template:
-        src: templates/nginx.conf.j2
-        dest: /etc/nginx/sites-available/hello.test.conf
-    
-    - name: Remove default nginx site config
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-    
-    - name: Enable nginx site for hello webapp
-      file:
-        src: /etc/nginx/sites-available/hello.test.conf
-        dest: /etc/nginx/sites-enabled/hello.test.conf
-        state: link
-        force: yes
-    
-    - name: Restart nginx service
-      systemd:
-        name: "nginx"
-        state: restarted
-        enabled: yes
+
